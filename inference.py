@@ -34,9 +34,11 @@ def do_sample(train_config, accelerator, ckpt_path=None, cfg_scale=None, model=N
         cfg_scale = train_config['sample']['cfg_scale']
     cfg_interval_start = train_config['sample']['cfg_interval_start'] if 'cfg_interval_start' in train_config['sample'] else 0
     timestep_shift = train_config['sample']['timestep_shift'] if 'timestep_shift' in train_config['sample'] else 0
+    # Always add timestep_shift to folder name if non-zero
+    if timestep_shift != 0:
+        folder_name += f"-shift{timestep_shift:.3f}"
     if cfg_scale > 1.0:
         folder_name += f"-interval{cfg_interval_start:.2f}"+f"-cfg{cfg_scale:.2f}"
-        folder_name += f"-shift{timestep_shift:.2f}"
 
     if demo_sample_mode:
         cfg_interval_start = 0

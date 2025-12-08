@@ -52,6 +52,8 @@ class Transport:
         partitial_train=None,
         partial_ratio=1.0,
         shift_lg=False,
+        lognorm_mu=0,
+        lognorm_sigma=1,
     ):
         path_options = {
             PathType.LINEAR: path.ICPlan,
@@ -69,6 +71,8 @@ class Transport:
         self.partitial_train = partitial_train
         self.partial_ratio = partial_ratio
         self.shift_lg = shift_lg
+        self.lognorm_mu = lognorm_mu
+        self.lognorm_sigma = lognorm_sigma
 
     def prior_logp(self, z):
         '''
@@ -133,30 +137,21 @@ class Transport:
         samples = samples[:target_size]
         return th.tensor(samples)
 
-    def sample(self, x1, sp_timesteps=None, shifted_mu=0):
+    def sample(self, x1, sp_timesteps=None):
         """Sampling x0 & t based on shape of x1 (if needed)
           Args:
             x1 - data point; [batch, *dim]
         """
-        
+
         x0 = th.randn_like(x1)
         t0, t1 = self.check_interval(self.train_eps, self.sample_eps)
         if not self.use_lognorm:
-            if self.partitial_train is not None and th.rand(1) < self.partial_ratio:
-                t = th.rand((x1.shape[0],)) * (self.partitial_train[1] - self.partitial_train[0]) + self.partitial_train[0]
-            else:
-                t = th.rand((x1.shape[0],)) * (t1 - t0) + t0
+            # Basic uniform sampling
+            t = th.rand((x1.shape[0],)) * (t1 - t0) + t0
         else:
-            # random < partial_ratio, then sample from the partial range
-            if not self.shift_lg:
-                if self.partitial_train is not None and th.rand(1) < self.partial_ratio:
-                    t = self.sample_in_range(0, 1, x1.shape[0], range_min=self.partitial_train[0], range_max=self.partitial_train[1])
-                else:
-                    t = self.sample_logit_normal(0, 1, size=x1.shape[0]) * (t1 - t0) + t0
-            else:
-                assert self.partitial_train is None, "Shifted lognormal distribution is not compatible with partial training"
-                t = self.sample_logit_normal(shifted_mu, 1, size=x1.shape[0]) * (t1 - t0) + t0
-        
+            # Lognormal sampling with configurable mu and sigma
+            t = self.sample_logit_normal(self.lognorm_mu, self.lognorm_sigma, size=x1.shape[0]) * (t1 - t0) + t0
+
         # overwrite t if sp_timesteps is provided (for validation)
         if sp_timesteps is not None:
             # uniform sampling between self.sp_timesteps[0] and self.sp_timesteps[1]
@@ -167,12 +162,11 @@ class Transport:
     
 
     def training_losses(
-        self, 
-        model,  
-        x1, 
+        self,
+        model,
+        x1,
         model_kwargs=None,
         sp_timesteps=None,
-        shifted_mu=0,
     ):
         """Loss for training the score model
         Args:
@@ -182,8 +176,8 @@ class Transport:
         """
         if model_kwargs == None:
             model_kwargs = {}
-        
-        t, x0, x1 = self.sample(x1, sp_timesteps, shifted_mu)
+
+        t, x0, x1 = self.sample(x1, sp_timesteps)
         t, xt, ut = self.path_sampler.plan(t, x0, x1)
         model_output = model(xt, t, **model_kwargs)
         B, *_, C = xt.shape

@@ -11,6 +11,8 @@ def create_transport(
     partitial_train=None,
     partial_ratio=1.0,
     shift_lg=False,
+    lognorm_mu=0,
+    lognorm_sigma=1,
 ):
     """function for creating Transport object
     **Note**: model prediction defaults to velocity
@@ -22,6 +24,8 @@ def create_transport(
     - likelihood_weighted: weight loss by likelihood weight
     - train_eps: small epsilon for avoiding instability during training
     - sample_eps: small epsilon for avoiding instability during sampling
+    - lognorm_mu: mu parameter for lognormal sampling (default: 0)
+    - lognorm_sigma: sigma parameter for lognormal sampling (default: 1)
     """
 
     if prediction == "noise":
@@ -55,7 +59,7 @@ def create_transport(
     else: # velocity & [GVP, LINEAR] is stable everywhere
         train_eps = 0
         sample_eps = 0
-    
+
     # create flow state
     state = Transport(
         model_type=model_type,
@@ -68,6 +72,8 @@ def create_transport(
         partitial_train=partitial_train,
         partial_ratio=partial_ratio,
         shift_lg=shift_lg,
+        lognorm_mu=lognorm_mu,
+        lognorm_sigma=lognorm_sigma,
     )
-    
+
     return state

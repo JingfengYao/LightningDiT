@@ -109,11 +109,14 @@ def do_train(train_config, accelerator):
         train_config['transport']['sample_eps'],
         use_cosine_loss = train_config['transport']['use_cosine_loss'] if 'use_cosine_loss' in train_config['transport'] else False,
         use_lognorm = train_config['transport']['use_lognorm'] if 'use_lognorm' in train_config['transport'] else False,
+        lognorm_mu = train_config['transport']['lognorm_mu'] if 'lognorm_mu' in train_config['transport'] else 0,
+        lognorm_sigma = train_config['transport']['lognorm_sigma'] if 'lognorm_sigma' in train_config['transport'] else 1,
     )  # default: velocity; 
     if accelerator.is_main_process:
         logger.info(f"LightningDiT Parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M")
         logger.info(f"Optimizer: AdamW, lr={train_config['optimizer']['lr']}, beta2={train_config['optimizer']['beta2']}")
         logger.info(f'Use lognorm sampling: {train_config["transport"]["use_lognorm"]}')
+        logger.info(f'Lognorm mu: {train_config["transport"].get("lognorm_mu", 0)}, sigma: {train_config["transport"].get("lognorm_sigma", 1)}')
         logger.info(f'Use cosine loss: {train_config["transport"]["use_cosine_loss"]}')
     opt = torch.optim.AdamW(model.parameters(), lr=train_config['optimizer']['lr'], weight_decay=0, betas=(0.9, train_config['optimizer']['beta2']))
     
